@@ -198,6 +198,35 @@ export default function ABIPage() {
             {error && (
               <div className="w-full max-w-lg mx-auto mt-4 bg-red-500/80 border border-red-600 text-white px-4 py-3 rounded-lg">
                 {error}
+
+                {/* RPC Error Helper */}
+                {(error.includes("Too Many Requests") ||
+                  error.includes("rate limit") ||
+                  error.includes("exceeding") ||
+                  error.includes("exceeded") ||
+                  error.includes("timeout") ||
+                  error.includes("connection")) && (
+                  <div className="mt-3 bg-black/30 p-3 rounded-md text-left">
+                    <div className="flex items-start mb-2">
+                      <div className="flex-shrink-0 h-6 w-6 bg-yellow-500/20 rounded-full flex items-center justify-center mr-2">
+                        <span className="text-yellow-300 text-xs">💡</span>
+                      </div>
+                      <p className="text-white/90 text-xs font-medium">
+                        RPC Connection Issue
+                      </p>
+                    </div>
+                    <p className="text-white/80 text-xs mb-2">
+                      This might be caused by RPC rate limiting. You can:
+                    </p>
+                    <ul className="list-disc text-xs text-white/80 space-y-1 pl-4 mb-3">
+                      <li>Try again in a few minutes</li>
+                      <li>Try a different blockchain network</li>
+                      <li>
+                        Use your own RPC URL (we never compromise security)
+                      </li>
+                    </ul>
+                  </div>
+                )}
               </div>
             )}
 

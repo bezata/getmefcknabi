@@ -17,6 +17,9 @@ import {
   isDatabaseReady,
 } from "../lib/db";
 
+// LocalStorage key for private chains
+const PRIVATE_CHAINS_KEY = 'getmefcknabi_private_chains';
+
 // Helper to convert ChainConfig to CustomChain
 const chainConfigToCustomChain = (config: ChainConfig): CustomChain => {
   return {
@@ -30,6 +33,7 @@ const chainConfigToCustomChain = (config: ChainConfig): CustomChain => {
 
 export default function useCustomChains() {
   const [customChains, setCustomChains] = useState<CustomChain[]>([]);
+  const [privateChains, setPrivateChains] = useState<CustomChain[]>([]);
   const [isLoaded, setIsLoaded] = useState(false);
   const [defaultChains, setDefaultChains] = useState<CustomChain[]>([]);
   const [dbError, setDbError] = useState<string | null>(null);
@@ -39,6 +43,29 @@ export default function useCustomChains() {
     const chains = Object.values(CHAIN_CONFIGS).map(chainConfigToCustomChain);
     setDefaultChains(chains);
   }, []);
+
+  // Load private chains from localStorage
+  const loadPrivateChains = () => {
+    try {
+      const privateChainData = localStorage.getItem(PRIVATE_CHAINS_KEY);
+      if (privateChainData) {
+        const parsedChains = JSON.parse(privateChainData) as CustomChain[];
+        console.log("Loaded private chains from localStorage:", parsedChains);
+        setPrivateChains(parsedChains);
+      }
+    } catch (error) {
+      console.error("Failed to load private chains from localStorage:", error);
+    }
+  };
+
+  // Save private chains to localStorage
+  const savePrivateChains = (chains: CustomChain[]) => {
+    try {
+      localStorage.setItem(PRIVATE_CHAINS_KEY, JSON.stringify(chains));
+    } catch (error) {
+      console.error("Failed to save private chains to localStorage:", error);
+    }
+  };
 
   // Load custom chains from IndexedDB on mount
   useEffect(() => {
@@ -54,11 +81,17 @@ export default function useCustomChains() {
         console.log("Loaded custom chains from IndexedDB:", chains);
         setCustomChains(chains);
         setDbError(null);
+
+        // Also load private chains from localStorage
+        loadPrivateChains();
       } catch (error) {
         console.error("Failed to load custom chains:", error);
         setDbError(
           error instanceof Error ? error.message : "Unknown database error"
         );
+        
+        // Still try to load private chains even if DB failed
+        loadPrivateChains();
       } finally {
         setIsLoaded(true);
       }
@@ -79,17 +112,38 @@ export default function useCustomChains() {
         rpcUrl: chain.rpcUrl,
         blockExplorerUrl: chain.blockExplorerUrl,
         isTestnet: chain.isTestnet ?? false,
+        isPrivate: chain.isPrivate ?? false
       };
 
-      // Save to IndexedDB
-      await saveCustomChain(chainToSave);
+      if (chainToSave.isPrivate) {
+        // Save to localStorage for private chains
+        const updatedPrivateChains = [...privateChains];
+        
+        // Remove any existing chain with same ID if present
+        const existingIndex = updatedPrivateChains.findIndex(c => c.id === chain.id);
+        if (existingIndex !== -1) {
+          updatedPrivateChains.splice(existingIndex, 1);
+        }
+        
+        // Add new chain
+        updatedPrivateChains.push(chainToSave);
+        
+        // Save to localStorage and update state
+        savePrivateChains(updatedPrivateChains);
+        setPrivateChains(updatedPrivateChains);
+        console.log("Private chain saved to localStorage:", chainToSave);
+      } else {
+        // Save to IndexedDB for public chains
+        await saveCustomChain(chainToSave);
 
-      // Verify the chain was saved by reloading all chains
-      const updatedChains = await getAllCustomChains();
-      console.log("Updated chains after save:", updatedChains);
-
-      // Update local state
-      setCustomChains(updatedChains);
+        // Verify the chain was saved by reloading all chains
+        const updatedChains = await getAllCustomChains();
+        console.log("Updated chains after save:", updatedChains);
+        
+        // Update local state
+        setCustomChains(updatedChains);
+      }
+      
       setDbError(null);
     } catch (error) {
       console.error("Failed to add custom chain:", error);
@@ -103,13 +157,27 @@ export default function useCustomChains() {
   // Remove a chain
   const removeChain = async (chainId: number) => {
     try {
-      await deleteCustomChain(chainId);
-
-      // Verify deletion by reloading chains
-      const remainingChains = await getAllCustomChains();
-      console.log("Remaining chains after deletion:", remainingChains);
-
-      setCustomChains(remainingChains);
+      // Check if it's in the private chains first
+      const privateChainIndex = privateChains.findIndex(c => c.id === chainId);
+      
+      if (privateChainIndex !== -1) {
+        // Remove from private chains
+        const updatedPrivateChains = [...privateChains];
+        updatedPrivateChains.splice(privateChainIndex, 1);
+        savePrivateChains(updatedPrivateChains);
+        setPrivateChains(updatedPrivateChains);
+        console.log("Removed private chain:", chainId);
+      } else {
+        // Otherwise, delete from database
+        await deleteCustomChain(chainId);
+        
+        // Verify deletion by reloading chains
+        const remainingChains = await getAllCustomChains();
+        console.log("Remaining chains after deletion:", remainingChains);
+        
+        setCustomChains(remainingChains);
+      }
+      
       setDbError(null);
     } catch (error) {
       console.error("Failed to remove custom chain:", error);
@@ -120,18 +188,28 @@ export default function useCustomChains() {
     }
   };
 
-  // Get all chains (both built-in and custom)
+  // Get all chains (built-in, custom, and private)
   const getAllChains = () => {
     // Start with default chains
     const allChains = [...defaultChains];
 
-    // Add or override with custom chains
+    // Add custom database chains
     customChains.forEach((customChain) => {
       const index = allChains.findIndex((chain) => chain.id === customChain.id);
       if (index !== -1) {
         allChains[index] = customChain;
       } else {
         allChains.push(customChain);
+      }
+    });
+    
+    // Add private localStorage chains
+    privateChains.forEach((privateChain) => {
+      const index = allChains.findIndex((chain) => chain.id === privateChain.id);
+      if (index !== -1) {
+        allChains[index] = privateChain;
+      } else {
+        allChains.push(privateChain);
       }
     });
 
@@ -159,27 +237,30 @@ export default function useCustomChains() {
         });
       }
 
-      // Check for custom chain
+      // Check for custom chain (either from DB or localStorage)
       const customChain = customChains.find((c) => c.id === chainId);
-      if (customChain) {
+      const privateChain = privateChains.find((c) => c.id === chainId);
+      const foundChain = customChain || privateChain;
+      
+      if (foundChain) {
         // Create a minimal chain configuration for viem
         const viemChain: Chain = {
-          id: customChain.id,
-          name: customChain.name,
+          id: foundChain.id,
+          name: foundChain.name,
           nativeCurrency: {
             name: "Ether",
             symbol: "ETH",
             decimals: 18,
           },
           rpcUrls: {
-            default: { http: [customChain.rpcUrl] },
-            public: { http: [customChain.rpcUrl] },
+            default: { http: [foundChain.rpcUrl] },
+            public: { http: [foundChain.rpcUrl] },
           },
         };
 
         return createPublicClient({
           chain: viemChain,
-          transport: http(customChain.rpcUrl),
+          transport: http(foundChain.rpcUrl),
         });
       }
 
@@ -230,6 +311,7 @@ export default function useCustomChains() {
 
   return {
     customChains,
+    privateChains,
     isLoaded,
     dbError,
     addChain,

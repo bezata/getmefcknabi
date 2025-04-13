@@ -648,10 +648,19 @@ export default function ContractForm({
                   <option
                     key={chain.id}
                     value={chain.id}
-                    className={chain.isTestnet ? "text-yellow-300" : ""}
+                    className={
+                      chain.isTestnet && chain.isPrivate
+                        ? "text-purple-300"
+                        : chain.isPrivate
+                        ? "text-purple-300"
+                        : chain.isTestnet
+                        ? "text-yellow-300"
+                        : ""
+                    }
                   >
-                    {chain.name} {chain.isTestnet ? "(Testnet)" : ""} (
-                    {chain.id})
+                    {chain.name}
+                    {chain.isTestnet ? " (Testnet)" : ""}
+                    {chain.isPrivate ? " (Private)" : ""} ({chain.id})
                   </option>
                 ))
               ) : (

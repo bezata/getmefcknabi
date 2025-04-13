@@ -17,6 +17,7 @@ export interface CustomChain {
   rpcUrl: string;
   blockExplorerUrl?: string;
   isTestnet?: boolean;
+  isPrivate?: boolean;
 }
 
 interface MongoDBResponse {
@@ -29,8 +30,13 @@ export default function CustomChainModal({
   onClose,
   onChainAdded,
 }: CustomChainModalProps) {
-  const { customChains, validateRpcEndpoint, removeChain, addChain } =
-    useCustomChains();
+  const {
+    customChains,
+    privateChains,
+    validateRpcEndpoint,
+    removeChain,
+    addChain,
+  } = useCustomChains();
   const [view, setView] = useState<"add" | "manage">("add");
   const [localCustomChains, setLocalCustomChains] = useState<CustomChain[]>([]);
   const [chainId, setChainId] = useState<string>("");
@@ -38,6 +44,7 @@ export default function CustomChainModal({
   const [rpcUrl, setRpcUrl] = useState<string>("");
   const [blockExplorerUrl, setBlockExplorerUrl] = useState<string>("");
   const [isTestnet, setIsTestnet] = useState<boolean>(false);
+  const [isPrivate, setIsPrivate] = useState<boolean>(false);
   const [isValidating, setIsValidating] = useState<boolean>(false);
   const [validationMessage, setValidationMessage] = useState<string>("");
   const [validationStatus, setValidationStatus] = useState<
@@ -50,46 +57,61 @@ export default function CustomChainModal({
     const loadChains = async () => {
       try {
         console.log("Loading chains in modal...");
-        const response = (await getAllCustomChains()) as
-          | CustomChain[]
-          | { error: string };
-        console.log("Loaded chains in modal:", response);
+        // Combine both public and private chains
+        const publicChainsResponse = await getAllCustomChains();
 
-        // Handle API response - should be an array directly now
-        if (Array.isArray(response)) {
-          setLocalCustomChains(response);
-        } else if ("error" in response) {
-          console.error("Error loading chains:", response.error);
-          setLocalCustomChains([]);
-        } else {
-          console.error("Unexpected response format:", response);
-          setLocalCustomChains([]);
-        }
+        // Make sure we have arrays for both chain types
+        const publicChains = Array.isArray(publicChainsResponse)
+          ? publicChainsResponse
+          : [];
+
+        // Combine both types of chains
+        const allCustomChains = [
+          ...publicChains,
+          ...privateChains.map((chain) => ({ ...chain, isPrivate: true })),
+        ];
+
+        console.log("Loaded combined chains in modal:", allCustomChains);
+
+        setLocalCustomChains(allCustomChains);
       } catch (error) {
         console.error("Failed to load chains in modal:", error);
-        setLocalCustomChains([]);
+        // If public chains fail to load, at least show private chains
+        setLocalCustomChains([
+          ...privateChains.map((chain) => ({ ...chain, isPrivate: true })),
+        ]);
       }
     };
 
     if (isOpen) {
       loadChains();
     }
-  }, [isOpen, view]);
+  }, [isOpen, view, privateChains]);
 
   // Force refresh chains after a modification (add/delete)
   const refreshChains = async () => {
     try {
       console.log("Refreshing chains...");
-      const response = (await getAllCustomChains()) as
-        | CustomChain[]
-        | { error: string };
+      // Get public chains
+      const publicChainsResponse = await getAllCustomChains();
+      const publicChains = Array.isArray(publicChainsResponse)
+        ? publicChainsResponse
+        : [];
 
-      if (Array.isArray(response)) {
-        console.log("Refreshed chains:", response);
-        setLocalCustomChains(response);
-      }
+      // Combine with private chains
+      const allCustomChains = [
+        ...publicChains,
+        ...privateChains.map((chain) => ({ ...chain, isPrivate: true })),
+      ];
+
+      console.log("Refreshed chains:", allCustomChains);
+      setLocalCustomChains(allCustomChains);
     } catch (error) {
       console.error("Failed to refresh chains:", error);
+      // If refresh fails, still show private chains
+      setLocalCustomChains([
+        ...privateChains.map((chain) => ({ ...chain, isPrivate: true })),
+      ]);
     }
   };
 
@@ -99,6 +121,7 @@ export default function CustomChainModal({
     setRpcUrl("");
     setBlockExplorerUrl("");
     setIsTestnet(false);
+    setIsPrivate(false);
     setValidationStatus("idle");
     setValidationMessage("");
     setView("add");
@@ -162,6 +185,7 @@ export default function CustomChainModal({
             rpcUrl: rpcUrl,
             blockExplorerUrl: blockExplorerUrl || undefined,
             isTestnet: isTestnet,
+            isPrivate: isPrivate,
           };
 
           console.log("Adding new chain:", newChain);
@@ -331,6 +355,70 @@ export default function CustomChainModal({
                       />
                     </div>
 
+                    {/* Storage Type Selection */}
+                    <div className="mb-1">
+                      <label className="block text-white/90 text-sm mb-2">
+                        Storage Type
+                      </label>
+                      <div className="flex border border-white/20 rounded-lg overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => setIsPrivate(false)}
+                          className={`flex-1 py-2.5 px-4 text-sm font-medium ${
+                            !isPrivate
+                              ? "bg-yellow-300 text-purple-900"
+                              : "bg-black/40 text-white hover:bg-white/10"
+                          } transition-colors flex items-center justify-center`}
+                          disabled={isValidating}
+                        >
+                          <svg
+                            className="w-4 h-4 mr-1.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z"
+                            ></path>
+                          </svg>
+                          Public
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsPrivate(true)}
+                          className={`flex-1 py-2.5 px-4 text-sm font-medium ${
+                            isPrivate
+                              ? "bg-purple-300 text-purple-900"
+                              : "bg-black/40 text-white hover:bg-white/10"
+                          } transition-colors flex items-center justify-center`}
+                          disabled={isValidating}
+                        >
+                          <svg
+                            className="w-4 h-4 mr-1.5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                            ></path>
+                          </svg>
+                          Private
+                        </button>
+                      </div>
+                      <p className="mt-1 text-xs text-white/60">
+                        {isPrivate
+                          ? "Private RPC will be stored only on your device"
+                          : "Public RPC will be available to all users"}
+                      </p>
+                    </div>
+
                     <div>
                       <label className="block text-white/90 text-sm mb-2">
                         RPC URL
@@ -339,8 +427,16 @@ export default function CustomChainModal({
                         type="text"
                         value={rpcUrl}
                         onChange={(e) => setRpcUrl(e.target.value)}
-                        className="w-full bg-black/40 border border-white/20 text-white rounded-lg px-4 py-3 focus:border-yellow-300 focus:outline-none transition-colors"
-                        placeholder="e.g. https://forno.celo.org"
+                        className={`w-full bg-black/40 border text-white rounded-lg px-4 py-3 focus:outline-none transition-colors ${
+                          isPrivate
+                            ? "border-purple-300/50 focus:border-purple-300"
+                            : "border-white/20 focus:border-yellow-300"
+                        }`}
+                        placeholder={
+                          isPrivate
+                            ? "e.g. https://your-private-rpc.com"
+                            : "e.g. https://forno.celo.org"
+                        }
                         disabled={isValidating}
                       />
                     </div>
@@ -374,6 +470,48 @@ export default function CustomChainModal({
                       >
                         This is a testnet
                       </label>
+                    </div>
+
+                    <div className="flex items-center mt-3 hidden">
+                      <input
+                        type="checkbox"
+                        id="isPrivate"
+                        checked={isPrivate}
+                        onChange={(e) => setIsPrivate(e.target.checked)}
+                        className="w-4 h-4 mr-2 accent-yellow-300 bg-black/40 border border-white/20 rounded focus:ring-yellow-500"
+                        disabled={isValidating}
+                      />
+                      <label
+                        htmlFor="isPrivate"
+                        className="text-white/90 text-sm cursor-pointer select-none"
+                      >
+                        Keep RPC private (stored locally only)
+                      </label>
+                      <div className="relative group ml-2">
+                        <div className="text-white/60 cursor-help">
+                          <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth="2"
+                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            ></path>
+                          </svg>
+                        </div>
+                        <div
+                          className="absolute left-0 w-56 p-2 mt-2 text-xs text-white bg-black/90 rounded-lg 
+                          shadow-lg opacity-0 pointer-events-none group-hover:opacity-100 z-10 transition-opacity"
+                        >
+                          Private RPC endpoints are stored only in your browser
+                          and won't be shared with other users. They'll be
+                          available only on this device.
+                        </div>
+                      </div>
                     </div>
 
                     {validationMessage && (
@@ -478,17 +616,41 @@ export default function CustomChainModal({
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -10 }}
-                          className="bg-black/40 border border-white/20 rounded-lg p-4 mb-3"
+                          className={`border rounded-lg p-4 mb-3 ${
+                            chain.isPrivate
+                              ? "bg-purple-500/10 border-purple-500/30"
+                              : "bg-black/40 border-white/20"
+                          }`}
                         >
                           <div className="flex justify-between items-start">
                             <div>
-                              <h3 className="text-white font-medium">
+                              <h3 className="text-white font-medium flex items-center flex-wrap">
                                 {chain.name}
-                                {chain.isTestnet && (
-                                  <span className="ml-2 text-xs bg-yellow-300/30 text-yellow-200 rounded-full px-2 py-0.5">
-                                    Testnet
-                                  </span>
-                                )}
+                                <div className="flex flex-wrap gap-1.5 ml-2">
+                                  {chain.isTestnet && (
+                                    <span className="text-xs bg-yellow-300/30 text-yellow-200 rounded-full px-2 py-0.5">
+                                      Testnet
+                                    </span>
+                                  )}
+                                  {chain.isPrivate && (
+                                    <span className="text-xs bg-purple-400/30 text-purple-200 rounded-full px-2 py-0.5 flex items-center">
+                                      <svg
+                                        className="w-2.5 h-2.5 mr-1"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth="2"
+                                          d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                                        ></path>
+                                      </svg>
+                                      Private
+                                    </span>
+                                  )}
+                                </div>
                               </h3>
                               <p className="text-white/60 text-sm mt-1">
                                 ID: {chain.id}
@@ -525,29 +687,36 @@ export default function CustomChainModal({
                               )}
                             </button>
                           </div>
-                          {chain.blockExplorerUrl && (
-                            <a
-                              href={chain.blockExplorerUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-yellow-300 hover:text-yellow-400 text-xs flex items-center mt-2"
-                            >
-                              <svg
-                                className="w-3 h-3 mr-1"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
+                          <div className="flex items-center mt-3">
+                            {chain.blockExplorerUrl && (
+                              <a
+                                href={chain.blockExplorerUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-yellow-300 hover:text-yellow-400 text-xs flex items-center"
                               >
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth="2"
-                                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-                                />
-                              </svg>
-                              Explorer
-                            </a>
-                          )}
+                                <svg
+                                  className="w-3 h-3 mr-1"
+                                  fill="none"
+                                  stroke="currentColor"
+                                  viewBox="0 0 24 24"
+                                >
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth="2"
+                                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                                  />
+                                </svg>
+                                Explorer
+                              </a>
+                            )}
+                            <div className="ml-auto text-xs text-white/50">
+                              {chain.isPrivate
+                                ? "Stored locally"
+                                : "Stored in database"}
+                            </div>
+                          </div>
                         </motion.div>
                       ))
                     )}
@@ -558,11 +727,51 @@ export default function CustomChainModal({
               <div className="px-6 py-4 bg-yellow-300/10 border-t border-white/10">
                 <div className="flex items-start">
                   <div className="text-yellow-300 mr-2 mt-1">💡</div>
-                  <p className="text-white/70 text-sm">
-                    {view === "add"
-                      ? "Adding a custom chain helps us connect to networks that aren't in our default list. You'll need the Chain ID, a name, and a working RPC endpoint."
-                      : "Your custom chains are permanently stored in your browser and will be available across sessions."}
-                  </p>
+                  <div className="text-white/70 text-sm">
+                    {view === "add" ? (
+                      <>
+                        <p className="mb-2">
+                          Adding a custom chain helps us connect to networks
+                          that aren't in our default list.
+                        </p>
+                        <p className="mb-2">
+                          <span className="text-yellow-300 font-medium">
+                            Public RPC:{" "}
+                          </span>
+                          Stored in our database and shared with other users.
+                          Great for contributing to the community.
+                        </p>
+                        <p>
+                          <span className="text-purple-300 font-medium">
+                            Private RPC:{" "}
+                          </span>
+                          Stored only on your device. Ideal for personal RPC
+                          endpoints with API keys or rate limits.
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="mb-2">
+                          Your custom chains are stored based on your privacy
+                          preference:
+                        </p>
+                        <ul className="list-disc pl-5 space-y-1">
+                          <li>
+                            <span className="text-white font-medium">
+                              Public:{" "}
+                            </span>
+                            Stored in our database for all users
+                          </li>
+                          <li>
+                            <span className="text-white font-medium">
+                              Private:{" "}
+                            </span>
+                            Stored only in your browser's local storage
+                          </li>
+                        </ul>
+                      </>
+                    )}
+                  </div>
                 </div>
               </div>
             </motion.div>

@@ -16,9 +16,9 @@ function ContractResults() {
   const [abi, setABI] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"functions" | "abi" | "analysis">(
-    "functions"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "functions" | "abi" | "analysis" | "code"
+  >("functions");
   const [copied, setCopied] = useState<boolean>(false);
   const [analyzeReady, setAnalyzeReady] = useState<boolean>(false);
   const [showDonationModal, setShowDonationModal] = useState<boolean>(false);
@@ -42,6 +42,7 @@ function ContractResults() {
     hasAdminFunctions: false,
     hasMintFunctions: false,
   });
+  const [codeFormat, setCodeFormat] = useState<"json" | "typescript">("json");
 
   useEffect(() => {
     if (!contractAddress) return;
@@ -445,26 +446,184 @@ function ContractResults() {
       <div>
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-bold text-white">Raw ABI</h3>
+
           <button
             onClick={() => copyToClipboard(abi)}
-            className="px-3 py-1 bg-white/10 hover:bg-white/20 text-white text-sm rounded-md transition-colors"
+            className="bg-white/10 hover:bg-white/20 text-white px-3 py-1.5 rounded-lg flex items-center text-sm transition-colors"
           >
-            {copied ? "Copied! ✓" : "Copy ABI"}
+            {copied ? (
+              <>
+                <svg
+                  className="w-4 h-4 mr-1.5 text-green-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M5 13l4 4L19 7"
+                  ></path>
+                </svg>
+                Copied!
+              </>
+            ) : (
+              <>
+                <svg
+                  className="w-4 h-4 mr-1.5"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"
+                  ></path>
+                </svg>
+                Copy ABI
+              </>
+            )}
           </button>
         </div>
-        <div className="bg-black/30 rounded-lg border border-white/10 overflow-hidden">
-          <pre className="p-4 text-white/90 text-sm font-mono overflow-x-auto whitespace-pre-wrap">
-            {abi}
+
+        <pre className="bg-black/40 p-4 rounded-lg overflow-x-auto text-sm text-white/80 font-mono border border-white/10 whitespace-pre-wrap">
+          {abi}
+        </pre>
+      </div>
+    );
+  };
+
+  // Generate code snippets
+  const renderCodeSnippets = () => {
+    // Create JSON format
+    const jsonABI = abi ? abi : "[]";
+
+    // Create TypeScript format with Viem
+    const contractName = getContractNameFromAddress();
+    const typescriptABI = `import { Abi } from "viem";
+
+export const ${contractName}ABI = ${jsonABI} as Abi;`;
+
+    return (
+      <div>
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold text-white">Code Ready to Use</h3>
+
+          <div className="flex bg-black/40 rounded-lg overflow-hidden border border-white/10">
+            <button
+              onClick={() => setCodeFormat("json")}
+              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                codeFormat === "json"
+                  ? "bg-yellow-300 text-purple-900"
+                  : "text-white hover:bg-white/10"
+              }`}
+            >
+              JSON
+            </button>
+            <button
+              onClick={() => setCodeFormat("typescript")}
+              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                codeFormat === "typescript"
+                  ? "bg-yellow-300 text-purple-900"
+                  : "text-white hover:bg-white/10"
+              }`}
+            >
+              TypeScript
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-black/40 rounded-lg border border-white/10 mb-4">
+          <div className="flex justify-between items-center p-3 border-b border-white/10">
+            <div className="text-sm text-white/70 font-mono">
+              {codeFormat === "json" ? "JSON ABI" : "Viem TypeScript ABI"}
+            </div>
+            <button
+              onClick={() =>
+                copyToClipboard(codeFormat === "json" ? jsonABI : typescriptABI)
+              }
+              className="text-white/70 hover:text-white transition-colors"
+            >
+              {copied ? (
+                <div className="flex items-center text-green-400 text-xs">
+                  <svg
+                    className="w-4 h-4 mr-1"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth="2"
+                      d="M5 13l4 4L19 7"
+                    ></path>
+                  </svg>
+                  Copied!
+                </div>
+              ) : (
+                <svg
+                  className="w-4 h-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M8 7v8a2 2 0 002 2h6M8 7V5a2 2 0 012-2h4.586a1 1 0 01.707.293l4.414 4.414a1 1 0 01.293.707V15a2 2 0 01-2 2h-2M8 7H6a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2v-2"
+                  ></path>
+                </svg>
+              )}
+            </button>
+          </div>
+          <pre className="p-4 overflow-x-auto text-sm text-white/80 font-mono whitespace-pre-wrap max-h-[500px] overflow-y-auto">
+            {codeFormat === "json" ? jsonABI : typescriptABI}
           </pre>
         </div>
-        <div className="mt-4 text-white/60 text-sm">
-          <p>
-            You can use this ABI with ethers.js, viem, web3.js, or any other
-            Ethereum library.
-          </p>
+
+        <div className="bg-yellow-500/10 p-4 rounded-lg border border-yellow-500/30">
+          <div className="flex items-start">
+            <div className="flex-shrink-0 h-8 w-8 bg-yellow-500/20 rounded-full flex items-center justify-center mr-3">
+              <span className="text-yellow-300 text-lg">💡</span>
+            </div>
+            <div>
+              <h4 className="font-medium text-yellow-300 mb-1">Usage Tips</h4>
+              {codeFormat === "json" ? (
+                <p className="text-white/80 text-sm">
+                  This JSON ABI can be used directly with any Web3 library like
+                  ethers.js, web3.js, or viem.
+                </p>
+              ) : (
+                <p className="text-white/80 text-sm">
+                  Copy this TypeScript code to your project to use with viem.
+                  This includes proper type definitions for better developer
+                  experience.
+                </p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     );
+  };
+
+  // Helper function to generate a nice contract name from the address
+  const getContractNameFromAddress = () => {
+    if (!contractAddress) return "ContractABI";
+
+    // Try to detect contract type from analysis
+    if (analysis.isERC20) return "TokenContract";
+    if (analysis.isERC721) return "NFTContract";
+    if (analysis.isProxy) return "ProxyContract";
+
+    // Otherwise use a part of the address
+    const shortAddress = contractAddress.substring(0, 6);
+    return `Contract${shortAddress}`;
   };
 
   const renderAnalysis = () => {
@@ -832,12 +991,62 @@ function ContractResults() {
         <div className="bg-red-500/50 border border-red-600 text-white px-6 py-4 rounded-lg text-center">
           <p className="text-lg font-medium mb-2">Error</p>
           <p>{error}</p>
-          <Link
-            href="/abi"
-            className="mt-4 inline-block bg-white/20 hover:bg-white/30 px-4 py-2 rounded-md transition-colors"
-          >
-            Try Again
-          </Link>
+
+          {/* RPC Error Helper */}
+          {(error.includes("Too Many Requests") ||
+            error.includes("rate limit") ||
+            error.includes("exceeding") ||
+            error.includes("exceeded") ||
+            error.includes("timeout") ||
+            error.includes("connection")) && (
+            <div className="mt-4 bg-black/30 p-4 rounded-lg text-left">
+              <div className="flex items-start mb-3">
+                <div className="flex-shrink-0 h-8 w-8 bg-yellow-500/20 rounded-full flex items-center justify-center mr-3">
+                  <span className="text-yellow-300 text-sm">💡</span>
+                </div>
+                <p className="text-white/90 text-sm font-medium">
+                  RPC Connection Issue Detected
+                </p>
+              </div>
+              <p className="text-white/80 text-sm mb-3">
+                This error might be caused by RPC rate limiting or connection
+                issues. You can:
+              </p>
+              <ol className="list-decimal text-sm text-white/80 space-y-2 pl-5 mb-4">
+                <li>Try again in a few minutes</li>
+                <li>Try a different blockchain network</li>
+                <li>Use your own RPC URL if you have one</li>
+              </ol>
+              <div className="flex justify-center">
+                <Link
+                  href="/abi"
+                  className="bg-white/20 hover:bg-white/30 text-white text-sm py-2 px-4 rounded-lg transition-colors mr-3"
+                >
+                  Try Again
+                </Link>
+                <Link
+                  href="/"
+                  className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 text-sm py-2 px-4 rounded-lg transition-colors"
+                >
+                  Change Network
+                </Link>
+              </div>
+            </div>
+          )}
+
+          {!error.includes("Too Many Requests") &&
+            !error.includes("rate limit") &&
+            !error.includes("exceeding") &&
+            !error.includes("exceeded") &&
+            !error.includes("timeout") &&
+            !error.includes("connection") && (
+              <Link
+                href="/abi"
+                className="mt-4 inline-block bg-white/20 hover:bg-white/30 px-4 py-2 rounded-md transition-colors"
+              >
+                Try Again
+              </Link>
+            )}
         </div>
       )}
 
@@ -867,6 +1076,16 @@ function ContractResults() {
                 Raw ABI
               </button>
               <button
+                onClick={() => setActiveTab("code")}
+                className={`px-6 py-3 text-sm font-medium transition-colors ${
+                  activeTab === "code"
+                    ? "bg-yellow-300 text-purple-900"
+                    : "bg-white/10 text-white hover:bg-white/20"
+                }`}
+              >
+                Code
+              </button>
+              <button
                 onClick={() => setActiveTab("analysis")}
                 className={`px-6 py-3 text-sm font-medium transition-colors ${
                   activeTab === "analysis"
@@ -883,6 +1102,7 @@ function ContractResults() {
           <div className="bg-white/10 backdrop-blur-sm rounded-xl p-6 shadow-xl border border-white/20">
             {activeTab === "functions" && renderFunctionGroups()}
             {activeTab === "abi" && renderABI()}
+            {activeTab === "code" && renderCodeSnippets()}
             {activeTab === "analysis" && renderAnalysis()}
           </div>
         </>
