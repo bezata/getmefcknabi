@@ -1,8 +1,75 @@
-# WhatsABI - Contract Explorer
+# GetMeFcknAbi - Smart Contract Explorer
+
+<div align="center">
+  <div style="font-size: 100px;">🔥</div>
+  
+  <h1>🔥 No more wasting time on Hardhat & Etherscan - just get me fckin' ABI! 🔥</h1>
+  
+  <p>
+    <b>⚡️ Instantly extract ABIs from any smart contract across any EVM chain ⚡️</b>
+  </p>
+  
+  <p>
+    <a href="https://www.npmjs.com/package/getmefcknabi"><img src="https://img.shields.io/npm/v/getmefcknabi.svg" alt="npm version" /></a>
+    <a href="https://www.npmjs.com/package/getmefcknabi"><img src="https://img.shields.io/npm/dm/getmefcknabi.svg" alt="downloads" /></a>
+    <a href="LICENSE"><img src="https://img.shields.io/github/license/bezata/getmefcknabi.svg" alt="license" /></a>
+  </p>
+</div>
+
+## ✨ Quick Start
+
+```bash
+# Install globally
+npm install -g getmefcknabi
+
+# Grab an ABI in seconds
+getmefcknabi -a 0xYourContractAddress -c 1 -f json
+
+# Or use interactive mode for a guided experience
+getmefcknabi --interactive
+```
+
+## 🚀 What's GetMeFcknABI?
+
+Tired of:
+- 😫 Searching for contract ABIs on Etherscan?
+- 😤 Setting up Hardhat with Etherscan API keys?
+- 😩 Dealing with unverified contracts?
+
+**GetMeFcknABI** is your one-stop solution! A powerful CLI tool that:
+
+- 🔍 Extracts ABIs from ANY contract (even unverified ones!)
+- ⚡ Works across ALL EVM chains
+- 🎨 Provides beautiful terminal output
+- 📝 Supports JSON and TypeScript formats
+- 🌉 Resolves proxy contracts automatically
+- 💻 Has a super-smooth interactive mode
+
+## ⚙️ CLI Features
+
+```bash
+# Run in interactive mode with a guided UI
+getmefcknabi --interactive
+
+# Extract ABI directly
+getmefcknabi -a 0xContractAddress -c 1 -f json
+
+# Use a custom RPC with TypeScript output
+getmefcknabi -a 0xContractAddress -c 137 -r https://your-rpc-url.com -f typescript
+
+# Save to a specific file
+getmefcknabi -a 0xContractAddress -c 1 -f json -o ./contracts/MyContract.json
+```
+
+[Learn more about the CLI →](./packages/cli/README.md)
+
+---
+
+## 🔍 Contract Explorer UI
 
 A simplified Ethereum contract explorer and interaction tool based on WhatsABI. This application allows users to easily explore contract ABIs, view function signatures, and interact with smart contracts across multiple chains without needing to have the contract source code or official ABI.
 
-## Features
+### Features
 
 - **Advanced Contract ABI Detection**: Automatically detect contract ABIs using multiple sources:
   - Bytecode signature analysis
@@ -54,8 +121,8 @@ This application supports a wide range of EVM-compatible networks:
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/whatsabi-explorer.git
-   cd whatsabi-explorer
+   git clone https://github.com/bezata/getmefcknabi.git
+   cd getmefcknabi
    ```
 
 2. Install dependencies:
