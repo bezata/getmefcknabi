@@ -5,11 +5,11 @@ if (!process.env.NEXT_PUBLIC_MONGODB_URI) {
 }
 
 const uri = process.env.NEXT_PUBLIC_MONGODB_URI;
+console.log("Connecting to MongoDB...");
+
+// Simplify connection options
 const options: MongoClientOptions = {
-  connectTimeoutMS: 10000, // 10 seconds
-  socketTimeoutMS: 45000, // 45 seconds
-  maxPoolSize: 50,
-  minPoolSize: 5,
+  // Remove timeouts and pool settings that might cause issues
   retryWrites: true,
   retryReads: true,
 };
@@ -17,21 +17,21 @@ const options: MongoClientOptions = {
 let client: MongoClient;
 let clientPromise: Promise<MongoClient>;
 
+declare global {
+  var _mongoClientPromise: Promise<MongoClient> | undefined;
+}
+
 if (process.env.NODE_ENV === "development") {
   // In development mode, use a global variable so that the value
   // is preserved across module reloads caused by HMR (Hot Module Replacement).
-  let globalWithMongo = global as typeof globalThis & {
-    _mongoClientPromise?: Promise<MongoClient>;
-  };
-
-  if (!globalWithMongo._mongoClientPromise) {
+  if (!global._mongoClientPromise) {
     client = new MongoClient(uri, options);
-    globalWithMongo._mongoClientPromise = client.connect().catch((err) => {
+    global._mongoClientPromise = client.connect().catch((err) => {
       console.error("Failed to connect to MongoDB:", err);
       throw err;
     });
   }
-  clientPromise = globalWithMongo._mongoClientPromise;
+  clientPromise = global._mongoClientPromise;
 } else {
   // In production mode, it's best to not use a global variable.
   client = new MongoClient(uri, options);
@@ -45,14 +45,26 @@ if (process.env.NODE_ENV === "development") {
 export default clientPromise;
 
 export const getDb = async () => {
-  const client = await clientPromise;
-  return client.db("getmefcknabi");
+  try {
+    const client = await clientPromise;
+    // Don't specify database name - use the one from the connection string
+    const db = client.db();
+    // Test the connection
+    await db.command({ ping: 1 });
+    console.log("Successfully connected to MongoDB");
+    return db;
+  } catch (error) {
+    console.error("Failed to connect to MongoDB:", error);
+    throw error;
+  }
 };
 
 export const isConnected = async () => {
   try {
     const client = await clientPromise;
-    await client.db("admin").command({ ping: 1 });
+    // Just ping the server without specifying database
+    await client.db().command({ ping: 1 });
+    console.log("MongoDB connection is alive");
     return true;
   } catch (err) {
     console.error("MongoDB connection check failed:", err);

@@ -50,14 +50,20 @@ export default function CustomChainModal({
     const loadChains = async () => {
       try {
         const response = (await getAllCustomChains()) as
-          | MongoDBResponse
-          | CustomChain[];
+          | CustomChain[]
+          | { error: string };
         console.log("Loaded chains in modal:", response);
-        // Extract chains array from the response
-        const chains = Array.isArray(response)
-          ? response
-          : response.chains || [];
-        setLocalCustomChains(chains);
+
+        // Handle API response - should be an array directly now
+        if (Array.isArray(response)) {
+          setLocalCustomChains(response);
+        } else if ("error" in response) {
+          console.error("Error loading chains:", response.error);
+          setLocalCustomChains([]);
+        } else {
+          console.error("Unexpected response format:", response);
+          setLocalCustomChains([]);
+        }
       } catch (error) {
         console.error("Failed to load chains in modal:", error);
         setLocalCustomChains([]);
