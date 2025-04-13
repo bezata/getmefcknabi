@@ -1,7 +1,7 @@
 {
   "name": "getmefcknabi",
-  "version": "0.1.0",
-  "description": "✨ Extract ABIs from any smart contract with minimal hassle - CLI tool to fetch and save contract ABIs in JSON or TypeScript format",
+  "version": "0.1.2",
+  "description": "✨ Extract ABIs from any smart contract with minimal hassle - CLI tool with interactive mode to extract ABIs from verified and unverified contracts on any EVM chain",
   "main": "dist/index.js",
   "bin": {
     "getmefcknabi": "dist/index.js"
@@ -18,7 +18,11 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/yourusername/getmefcknabi"
+    "url": "https://github.com/bezata/getmefcknabi"
+  },
+  "homepage": "https://getmefcknabi.fun",
+  "bugs": {
+    "url": "https://github.com/bezata/getmefcknabi/issues"
   },
   "keywords": [
     "ethereum",
@@ -31,9 +35,12 @@
     "ethereum-contract",
     "web3",
     "ethers",
-    "viem"
+    "viem",
+    "unverified",
+    "bytecode",
+    "decompiler"
   ],
-  "author": "Your Name <your.email@example.com>",
+  "author": "bezata <bezatcnacle@gmail.com>",
   "license": "MIT",
   "engines": {
     "node": ">=16.0.0"

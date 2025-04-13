@@ -1,7 +1,7 @@
-# GetMeFcknABI
+# GetMeFcknABI CLI
 
 <p align="center">
-  <img src="https://i.imgur.com/yourimageid.png" alt="GetMeFcknABI Logo" width="200"/>
+  <img src="https://getmefcknabi.fun/favicon.svg" alt="GetMeFcknABI Logo" width="150"/>
 </p>
 
 <p align="center">
@@ -11,7 +11,7 @@
 <p align="center">
   <img src="https://img.shields.io/npm/v/getmefcknabi.svg" alt="npm version">
   <img src="https://img.shields.io/npm/dm/getmefcknabi.svg" alt="downloads">
-  <img src="https://img.shields.io/github/license/yourusername/getmefcknabi.svg" alt="license">
+  <img src="https://img.shields.io/github/license/bezata/getmefcknabi.svg" alt="license">
 </p>
 
 <p align="center">
@@ -23,6 +23,7 @@
 ## 🚀 Features
 
 - 🎯 **Extract ABIs from any smart contract address**
+- 🛡️ **Works with unverified contracts** by analyzing their bytecode
 - 🔗 **Support for all major EVM chains** (Ethereum, Polygon, Arbitrum, Optimism, etc.)
 - 🎨 **Interactive mode** with guided prompts
 - 📝 **Multiple output formats** (JSON and TypeScript)
@@ -37,12 +38,12 @@
 npm install -g getmefcknabi
 
 # Or run directly with npx
-npx getmefcknabi
+npx getmefcknabi --interactive
 ```
 
 ## 🔧 Usage
 
-### Interactive Mode
+### Interactive Mode (Recommended)
 
 The easiest way to use GetMeFcknABI is in interactive mode:
 
@@ -138,5 +139,9 @@ MIT License - see [LICENSE](LICENSE) for details
 ---
 
 <p align="center">
-  Made with ❤️ by <a href="https://github.com/yourusername">Your Name</a>
+  Made with ❤️ by <a href="https://github.com/bezata">bezata</a>
+</p>
+
+<p align="center">
+  <a href="https://getmefcknabi.fun">getmefcknabi.fun</a>
 </p> 

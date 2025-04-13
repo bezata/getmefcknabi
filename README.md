@@ -230,3 +230,8 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - [WhatsABI](https://github.com/shazow/whatsabi) - The core library for contract ABI detection
 - [shazow](https://github.com/shazow) - Creator of the WhatsABI library
+
+TODOS:
+- FIX README
+- STABILIZE UNVERIFIED - PROXY CONTRACTS
+- TEST CLI CONNECTION MORE
