@@ -137,8 +137,8 @@ export default function Home() {
                 <span className="text-yellow-300 mr-2">4.</span>
                 <span>
                   Construct a working ABI that's compatible with{" "}
-                  <span className="font-mono text-yellow-300">ethers.js</span>{" "}
-                  and <span className="font-mono text-yellow-300">viem</span>
+                  <span className="font-mono text-yellow-300">wagmi</span> and{" "}
+                  <span className="font-mono text-yellow-300">viem</span>
                 </span>
               </li>
             </ul>

@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ContractFunction } from "../lib/whatsabi";
 import DonationModal, { DONATION_ADDRESSES } from "../components/DonationModal";
+import { getCachedContractABI, cacheContractABI } from "../lib/db";
 
 // Component that uses searchParams and needs to be wrapped in Suspense
 function ContractResults() {
@@ -22,6 +23,7 @@ function ContractResults() {
   const [copied, setCopied] = useState<boolean>(false);
   const [analyzeReady, setAnalyzeReady] = useState<boolean>(false);
   const [showDonationModal, setShowDonationModal] = useState<boolean>(false);
+  const [cacheStatus, setCacheStatus] = useState<"hit" | "miss" | null>(null);
   const [analysis, setAnalysis] = useState<{
     writeFunctions: number;
     readFunctions: number;
@@ -50,8 +52,39 @@ function ContractResults() {
     const fetchData = async () => {
       setIsLoading(true);
       setError(null);
+      setCacheStatus(null);
 
       try {
+        // First, check if we have this contract cached
+        const cachedData = await getCachedContractABI(contractAddress, chainId);
+
+        if (cachedData) {
+          // Use the cached data
+          console.log("Cache hit! Using cached contract data");
+          setCacheStatus("hit");
+          setFunctions(cachedData.functions);
+          setABI(cachedData.abi);
+
+          // Analyze the contract
+          const analysisResult = analyzeContract(cachedData.functions);
+
+          // Check for proxy implementation
+          if (analysisResult.isProxy) {
+            await checkProxyImplementation(
+              contractAddress,
+              chainId,
+              cachedData.functions
+            );
+          }
+
+          setIsLoading(false);
+          return;
+        }
+
+        // Cache miss, we need to fetch from the API
+        setCacheStatus("miss");
+        console.log("Cache miss! Fetching from API");
+
         // Fetch functions
         const functionsResponse = await fetch(
           `/api/contract/functions?address=${contractAddress}&chainId=${chainId}`
@@ -81,43 +114,21 @@ function ContractResults() {
         // Analyze the contract
         const analysisResult = analyzeContract(functionsData.functions);
 
+        // Cache the results for next time
+        cacheContractABI(
+          contractAddress,
+          chainId,
+          abiData.formattedABI,
+          functionsData.functions
+        );
+
         // If proxy contract, try to get implementation address
         if (analysisResult.isProxy) {
-          try {
-            // Check if there's an implementation function we can call
-            const implFunction = functionsData.functions.find(
-              (f: ContractFunction) =>
-                (f.name.toLowerCase() === "implementation" ||
-                  f.name.toLowerCase() === "getimplementation") &&
-                f.stateMutability === "view" &&
-                f.inputs.length === 0
-            );
-
-            if (implFunction && implFunction.sighash) {
-              // Call the implementation function to get the address
-              const implResponse = await fetch(
-                `/api/contract/read?address=${contractAddress}&chainId=${chainId}&function=${implFunction.sighash}`
-              );
-
-              if (implResponse.ok) {
-                const implData = await implResponse.json();
-                if (
-                  implData.result &&
-                  typeof implData.result === "string" &&
-                  implData.result.startsWith("0x")
-                ) {
-                  // Update analysis with implementation address
-                  setAnalysis((prev) => ({
-                    ...prev,
-                    implementationAddress: implData.result,
-                  }));
-                }
-              }
-            }
-          } catch (implError) {
-            console.error("Error fetching implementation address:", implError);
-            // Just continue without implementation address
-          }
+          await checkProxyImplementation(
+            contractAddress,
+            chainId,
+            functionsData.functions
+          );
         }
       } catch (err: any) {
         console.error("Error loading contract data:", err);
@@ -129,6 +140,49 @@ function ContractResults() {
 
     fetchData();
   }, [contractAddress, chainId]);
+
+  // Helper function to check proxy implementation
+  const checkProxyImplementation = async (
+    address: string,
+    chainId: number,
+    functionsList: ContractFunction[]
+  ) => {
+    try {
+      // Check if there's an implementation function we can call
+      const implFunction = functionsList.find(
+        (f: ContractFunction) =>
+          (f.name.toLowerCase() === "implementation" ||
+            f.name.toLowerCase() === "getimplementation") &&
+          f.stateMutability === "view" &&
+          f.inputs.length === 0
+      );
+
+      if (implFunction && implFunction.sighash) {
+        // Call the implementation function to get the address
+        const implResponse = await fetch(
+          `/api/contract/read?address=${address}&chainId=${chainId}&function=${implFunction.sighash}`
+        );
+
+        if (implResponse.ok) {
+          const implData = await implResponse.json();
+          if (
+            implData.result &&
+            typeof implData.result === "string" &&
+            implData.result.startsWith("0x")
+          ) {
+            // Update analysis with implementation address
+            setAnalysis((prev) => ({
+              ...prev,
+              implementationAddress: implData.result,
+            }));
+          }
+        }
+      }
+    } catch (implError) {
+      console.error("Error fetching implementation address:", implError);
+      // Just continue without implementation address
+    }
+  };
 
   const analyzeContract = (functions: ContractFunction[]) => {
     // Count function types
@@ -596,7 +650,7 @@ export const ${contractName}ABI = ${jsonABI} as Abi;`;
               {codeFormat === "json" ? (
                 <p className="text-white/80 text-sm">
                   This JSON ABI can be used directly with any Web3 library like
-                  ethers.js, web3.js, or viem.
+                  wagmi, web3.js, wagmi or viem.
                 </p>
               ) : (
                 <p className="text-white/80 text-sm">
@@ -944,6 +998,25 @@ export const ${contractName}ABI = ${jsonABI} as Abi;`;
                 📋
               </button>
             </div>
+
+            {cacheStatus === "hit" && (
+              <div className="mt-1 text-green-300 text-xs flex items-center">
+                <svg
+                  className="w-3.5 h-3.5 mr-1"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M13 10V3L4 14h7v7l9-11h-7z"
+                  />
+                </svg>
+                Loaded from cache
+              </div>
+            )}
           </div>
 
           <div className="flex items-center mt-4 md:mt-0">

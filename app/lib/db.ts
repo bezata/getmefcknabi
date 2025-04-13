@@ -1,9 +1,22 @@
 import Dexie, { Table } from "dexie";
 import { CustomChain } from "../components/CustomChainModal";
+import { ContractFunction } from "./whatsabi";
+
+// Define an interface for cached contract ABIs
+export interface CachedContractABI {
+  id?: number; // Auto-incremented primary key
+  address: string; // Contract address (lowercased)
+  chainId: number; // Chain ID
+  abi: string; // Stringified ABI
+  functions: string; // Stringified functions array
+  timestamp: number; // When it was cached
+  verified: boolean; // Whether this is from a verified source
+}
 
 // Define the database
 class ChainDatabase extends Dexie {
   customChains!: Table<CustomChain, number>;
+  cachedABIs!: Table<CachedContractABI, number>;
 
   constructor() {
     super("getmefcknabi_db");
@@ -11,6 +24,12 @@ class ChainDatabase extends Dexie {
     // Define tables and indices
     this.version(1).stores({
       customChains: "id, name, rpcUrl, blockExplorerUrl, isTestnet",
+    });
+
+    // Add version 2 with cachedABIs table
+    this.version(2).stores({
+      customChains: "id, name, rpcUrl, blockExplorerUrl, isTestnet",
+      cachedABIs: "++id, [address+chainId], address, chainId, timestamp",
     });
 
     // Add hooks for debugging
@@ -145,6 +164,114 @@ export const isDatabaseReady = async (): Promise<boolean> => {
   } catch (error) {
     console.error("Database not ready:", error);
     return false;
+  }
+};
+
+// ABI Caching functions
+export const cacheContractABI = async (
+  address: string,
+  chainId: number,
+  abi: string,
+  functions: ContractFunction[],
+  verified: boolean = false
+): Promise<void> => {
+  try {
+    // Normalize the address
+    const normalizedAddress = address.toLowerCase();
+
+    // Check if we already have this ABI
+    const existingRecord = await db.cachedABIs
+      .where("[address+chainId]")
+      .equals([normalizedAddress, chainId])
+      .first();
+
+    // JSON stringify the functions array
+    const functionsString = JSON.stringify(functions);
+
+    if (existingRecord) {
+      // Update existing record
+      await db.cachedABIs.update(existingRecord.id!, {
+        abi,
+        functions: functionsString,
+        timestamp: Date.now(),
+        verified: verified || existingRecord.verified, // Keep verified flag if it was already verified
+      });
+      console.log(
+        `Updated cached ABI for ${normalizedAddress} on chain ${chainId}`
+      );
+    } else {
+      // Add new record
+      await db.cachedABIs.add({
+        address: normalizedAddress,
+        chainId,
+        abi,
+        functions: functionsString,
+        timestamp: Date.now(),
+        verified,
+      });
+      console.log(`Cached ABI for ${normalizedAddress} on chain ${chainId}`);
+    }
+  } catch (error) {
+    console.error("Error caching contract ABI:", error);
+  }
+};
+
+export const getCachedContractABI = async (
+  address: string,
+  chainId: number
+): Promise<{ abi: string; functions: ContractFunction[] } | null> => {
+  try {
+    // Normalize the address
+    const normalizedAddress = address.toLowerCase();
+
+    // Look up the ABI in the cache
+    const cachedEntry = await db.cachedABIs
+      .where("[address+chainId]")
+      .equals([normalizedAddress, chainId])
+      .first();
+
+    if (cachedEntry) {
+      // Check if the cached entry is reasonably fresh (7 days)
+      const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+      if (cachedEntry.timestamp > oneWeekAgo || cachedEntry.verified) {
+        console.log(
+          `Using cached ABI for ${normalizedAddress} on chain ${chainId}`
+        );
+        // Parse the functions string back to an array
+        const functions = JSON.parse(
+          cachedEntry.functions
+        ) as ContractFunction[];
+        return {
+          abi: cachedEntry.abi,
+          functions,
+        };
+      } else {
+        console.log(
+          `Cached ABI for ${normalizedAddress} is outdated. Cached on: ${new Date(
+            cachedEntry.timestamp
+          ).toLocaleString()}`
+        );
+        return null;
+      }
+    }
+
+    console.log(
+      `No cached ABI found for ${normalizedAddress} on chain ${chainId}`
+    );
+    return null;
+  } catch (error) {
+    console.error("Error retrieving cached contract ABI:", error);
+    return null;
+  }
+};
+
+export const clearCachedContractABIs = async (): Promise<void> => {
+  try {
+    await db.cachedABIs.clear();
+    console.log("Cleared all cached ABIs");
+  } catch (error) {
+    console.error("Error clearing cached ABIs:", error);
   }
 };
 
