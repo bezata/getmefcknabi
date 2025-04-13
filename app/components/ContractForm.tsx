@@ -154,33 +154,51 @@ export default function ContractForm({
       for (const chainToTry of chainsToTry) {
         try {
           console.log(`Trying chain ID: ${chainToTry}`);
+          console.log(
+            `Chain name: ${
+              chains.find((c) => c.id === chainToTry)?.name || "Unknown"
+            }`
+          );
+
           const client = await createClientForChain(chainToTry);
+          console.log(`Client created for chain ${chainToTry}`);
 
           // Check if contract exists on this chain
+          console.log(
+            `Fetching code for ${formattedAddress} on chain ${chainToTry}`
+          );
           const code = await client.getCode({
             address: formattedAddress,
           });
 
           console.log(`Chain ${chainToTry} code result:`, code);
+          console.log(`Code length: ${code ? code.length : 0}`);
 
           if (code && code !== "0x") {
             // Contract found on this chain!
+            console.log(
+              `Contract found on chain ID: ${chainToTry} with code length: ${code.length}`
+            );
             setSuggestedChainId(chainToTry);
-            console.log(`Contract found on chain ID: ${chainToTry}`);
 
             // Basic type detection from bytecode
             if (code.includes("0x23b872dd")) {
+              console.log("Detected ERC-721 NFT signature");
               setContractType("ERC-721 NFT");
             } else if (
               code.includes("0x095ea7b3") &&
               code.includes("0xa9059cbb")
             ) {
+              console.log("Detected ERC-20 Token signatures");
               setContractType("ERC-20 Token");
             } else if (code.includes("0x150b7a02")) {
+              console.log("Detected ERC-721 Receiver signature");
               setContractType("ERC-721 Receiver");
             } else if (code.includes("0x01ffc9a7")) {
+              console.log("Detected ERC-165 Compatible signature");
               setContractType("ERC-165 Compatible");
             } else {
+              console.log("Generic Smart Contract detected");
               setContractType("Smart Contract");
             }
 

@@ -63,7 +63,10 @@ export async function getWhatsABIClientById(
 
     // Find the chain name based on ID
     const chainEntries = Object.entries(CHAIN_IDS);
+    console.log("Available chains:", chainEntries);
+
     const chainEntry = chainEntries.find(([_, id]) => id === chainId);
+    console.log("Found chain entry:", chainEntry);
 
     if (!chainEntry) {
       console.error(`Unsupported chain ID: ${chainId}`);
@@ -73,10 +76,15 @@ export async function getWhatsABIClientById(
     const chainName = chainEntry[0] as SupportedChain;
     console.log(`Found chain name ${chainName} for ID ${chainId}`);
 
+    // Create or get existing client
+    console.log(`Getting WhatsABI client for chain ${chainName}`);
     const client = await getWhatsABIClient(chainName);
+    console.log(`Client obtained for ${chainName}`);
 
     // Ensure the client is using the correct chain ID
+    console.log(`Setting chain ID to ${chainId} for client`);
     await client.setChainId(chainId);
+    console.log(`Chain ID set to ${chainId}`);
 
     return client;
   } catch (error) {

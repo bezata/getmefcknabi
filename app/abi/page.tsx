@@ -88,21 +88,30 @@ export default function ABIPage() {
     setShowResults(false);
     setLoadingProgress(0);
 
+    console.log(
+      `Contract submit initiated for address: ${address} on chain ID: ${selectedChainId}`
+    );
+
     try {
       // Call API to get contract functions
-      const response = await fetch(
-        `/api/contract/functions?address=${address}&chainId=${selectedChainId}`
-      );
+      const apiUrl = `/api/contract/functions?address=${address}&chainId=${selectedChainId}`;
+      console.log(`Calling API endpoint: ${apiUrl}`);
+
+      const response = await fetch(apiUrl);
+      console.log(`API response status: ${response.status}`);
 
       const data = await response.json();
+      console.log(`API response data:`, data);
 
       if (!response.ok) {
+        console.error(`API error: ${data.error}`);
         throw new Error(data.error || "Failed to load contract functions");
       }
 
       setContractAddress(address);
       setChainId(selectedChainId);
       setFunctions(data.functions);
+      console.log(`Successfully loaded ${data.functions.length} functions`);
 
       // Fake a little extra loading time for dramatic effect
       setTimeout(() => {

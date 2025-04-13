@@ -17,30 +17,40 @@ export async function GET(request: Request) {
     const rawAddress = searchParams.get("address")?.toLowerCase();
     const chainId = parseInt(searchParams.get("chainId") || "1");
 
+    console.log(`API request - Raw address: ${rawAddress}, Chain ID: ${chainId}`);
+
     if (!rawAddress) {
       throw new Error("Address parameter is required");
     }
 
-    // Ensure address is properly checksummed
-    const address = getAddress(rawAddress);
-    console.log("Normalized address:", address);
+    try {
+      // Ensure address is properly checksummed
+      const address = getAddress(rawAddress);
+      console.log("Normalized address:", address);
 
-    // Validate parameters
-    const validatedParams = RequestSchema.parse({ address, chainId });
+      // Validate parameters
+      const validatedParams = RequestSchema.parse({ address, chainId });
+      console.log("Parameters validated successfully");
 
-    // Get WhatsABI client for the specified chain
-    const client = await getWhatsABIClientById(validatedParams.chainId);
-    console.log("WhatsABI client initialized");
+      // Get WhatsABI client for the specified chain
+      console.log(`Initializing WhatsABI client for chain ID: ${chainId}`);
+      const client = await getWhatsABIClientById(validatedParams.chainId);
+      console.log("WhatsABI client initialized successfully");
 
-    // Get contract functions
-    const functions = await client.getContractFunctions(
-      validatedParams.address
-    );
-    console.log(
-      `Found ${functions.length} functions for contract ${validatedParams.address}`
-    );
+      // Get contract functions
+      console.log(`Fetching contract functions for ${validatedParams.address}`);
+      const functions = await client.getContractFunctions(
+        validatedParams.address
+      );
+      console.log(
+        `Found ${functions.length} functions for contract ${validatedParams.address}`
+      );
 
-    return NextResponse.json({ functions });
+      return NextResponse.json({ functions });
+    } catch (error) {
+      console.error("Error processing contract request:", error);
+      throw error;
+    }
   } catch (error) {
     console.error("Error in contract functions route:", error);
 
@@ -57,6 +67,7 @@ export async function GET(request: Request) {
           : undefined,
     };
 
+    console.log("Returning error response:", errorResponse);
     return NextResponse.json(errorResponse, { status: 400 });
   }
 }

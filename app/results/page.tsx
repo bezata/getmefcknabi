@@ -31,6 +31,7 @@ function ContractResults() {
     isProxy: boolean;
     hasAdminFunctions: boolean;
     hasMintFunctions: boolean;
+    implementationAddress?: string;
   }>({
     writeFunctions: 0,
     readFunctions: 0,
@@ -77,7 +78,46 @@ function ContractResults() {
         setABI(abiData.formattedABI);
 
         // Analyze the contract
-        analyzeContract(functionsData.functions);
+        const analysisResult = analyzeContract(functionsData.functions);
+
+        // If proxy contract, try to get implementation address
+        if (analysisResult.isProxy) {
+          try {
+            // Check if there's an implementation function we can call
+            const implFunction = functionsData.functions.find(
+              (f: ContractFunction) =>
+                (f.name.toLowerCase() === "implementation" ||
+                  f.name.toLowerCase() === "getimplementation") &&
+                f.stateMutability === "view" &&
+                f.inputs.length === 0
+            );
+
+            if (implFunction && implFunction.sighash) {
+              // Call the implementation function to get the address
+              const implResponse = await fetch(
+                `/api/contract/read?address=${contractAddress}&chainId=${chainId}&function=${implFunction.sighash}`
+              );
+
+              if (implResponse.ok) {
+                const implData = await implResponse.json();
+                if (
+                  implData.result &&
+                  typeof implData.result === "string" &&
+                  implData.result.startsWith("0x")
+                ) {
+                  // Update analysis with implementation address
+                  setAnalysis((prev) => ({
+                    ...prev,
+                    implementationAddress: implData.result,
+                  }));
+                }
+              }
+            }
+          } catch (implError) {
+            console.error("Error fetching implementation address:", implError);
+            // Just continue without implementation address
+          }
+        }
       } catch (err: any) {
         console.error("Error loading contract data:", err);
         setError(err.message || "Failed to load contract data");
@@ -107,6 +147,28 @@ function ContractResults() {
     let adminFunctions = false;
     let mintFunctions = false;
     let proxyLookup = false;
+
+    // Proxy pattern detection
+    const proxyPatterns = [
+      // OpenZeppelin proxy patterns
+      "implementation",
+      "upgradeto",
+      "delegate",
+      // EIP-1967 patterns
+      "beacon",
+      "admin",
+      "logic",
+      "getimplementation",
+      // UUPS proxies
+      "proxyadmin",
+      "upgradeproxy",
+      // Diamond/Facet proxies
+      "diamond",
+      "facet",
+      "loupe",
+      // Generic proxy terms
+      "proxy",
+    ];
 
     // Analyze functions
     functions.forEach((func) => {
@@ -145,18 +207,25 @@ function ContractResults() {
         mintFunctions = true;
       }
 
-      // Check for proxy patterns
+      // Check for proxy patterns with a more comprehensive approach
+      const funcNameLower = func.name.toLowerCase();
+      if (proxyPatterns.some((pattern) => funcNameLower.includes(pattern))) {
+        proxyLookup = true;
+      }
+
+      // Check for specific proxy selectors
       if (
-        func.name.toLowerCase().includes("implementation") ||
-        func.name.toLowerCase().includes("delegate") ||
-        func.name.toLowerCase().includes("proxy") ||
-        func.name.toLowerCase().includes("upgradeto")
+        func.sighash === "0x5c60da1b" || // implementation()
+        func.sighash === "0x3659cfe6" || // upgradeTo(address)
+        func.sighash === "0xf851a440" || // admin()
+        func.sighash === "0x4f1ef286"
       ) {
+        // delegatecall proxy pattern
         proxyLookup = true;
       }
     });
 
-    setAnalysis({
+    const analysisResult = {
       writeFunctions,
       readFunctions,
       events,
@@ -166,9 +235,12 @@ function ContractResults() {
       isProxy: proxyLookup,
       hasAdminFunctions: adminFunctions,
       hasMintFunctions: mintFunctions,
-    });
+    };
 
+    setAnalysis(analysisResult);
     setAnalyzeReady(true);
+
+    return analysisResult;
   };
 
   const copyToClipboard = (text: string) => {
@@ -463,6 +535,159 @@ function ContractResults() {
           </div>
         </div>
 
+        {/* Add proxy info box after function statistics */}
+        {analysis.isProxy && (
+          <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg mb-6">
+            <div className="flex items-start">
+              <div className="flex-shrink-0 h-10 w-10 bg-yellow-500/20 rounded-full flex items-center justify-center mr-4">
+                <svg
+                  className="w-5 h-5 text-yellow-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth="2"
+                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  ></path>
+                </svg>
+              </div>
+              <div>
+                <h4 className="font-medium text-yellow-300 mb-2">
+                  Proxy Contract Detected
+                </h4>
+                <p className="text-white/80 text-sm mb-3">
+                  This is a proxy contract that delegates calls to an
+                  implementation contract. The ABI shown here is for the proxy
+                  interface only.
+                </p>
+
+                <div className="bg-black/30 border border-yellow-500/20 p-3 rounded-md text-sm mb-3 flex items-start">
+                  <span className="text-yellow-300 text-xl mr-2">⚠️</span>
+                  <p className="text-white/90">
+                    <span className="font-semibold text-yellow-300">
+                      Hey there!{" "}
+                    </span>
+                    We're working on better proxy contract handling! 💪 This ABI
+                    is just for the proxy itself, not the actual implementation
+                    where all the cool stuff happens. But don't worry, we're
+                    actively improving this - stay tuned for even better proxy
+                    detection soon! 🚀
+                  </p>
+                </div>
+
+                <div className="bg-black/30 p-3 rounded-md text-sm mb-3">
+                  <p className="text-white/70 mb-2">
+                    <span className="text-yellow-300 font-medium">
+                      How proxy contracts work:{" "}
+                    </span>
+                    Proxy contracts use{" "}
+                    <code className="bg-black/40 px-1 rounded">
+                      delegatecall
+                    </code>{" "}
+                    to forward function calls to an implementation contract
+                    while keeping storage in the proxy contract.
+                  </p>
+                  <p className="text-white/70">
+                    This pattern allows for upgrading the contract logic without
+                    changing the contract address or losing state.
+                  </p>
+                </div>
+                <div className="flex flex-col space-y-2">
+                  <p className="text-white/80 text-sm">
+                    Most proxy contracts include functions for:
+                  </p>
+                  <ul className="list-disc pl-5 text-sm text-white/70 space-y-1">
+                    <li>Getting the current implementation address</li>
+                    <li>Upgrading to a new implementation (admin only)</li>
+                    <li>Managing admin/ownership rights</li>
+                  </ul>
+                </div>
+
+                <div className="mt-4 pt-3 border-t border-yellow-500/20">
+                  <p className="text-white/80 text-sm mb-3">
+                    <span className="text-yellow-300 font-medium">
+                      Want the full ABI?{" "}
+                    </span>
+                    You may be interested in the implementation contract
+                    instead:
+                  </p>
+
+                  {analysis.implementationAddress ? (
+                    <div className="bg-black/30 p-3 rounded-md mb-3">
+                      <p className="text-white/80 text-sm mb-2">
+                        Implementation contract found:
+                      </p>
+                      <div className="flex items-center">
+                        <span className="font-mono text-xs text-green-300 bg-green-500/10 p-1.5 rounded mr-2 break-all">
+                          {analysis.implementationAddress}
+                        </span>
+                        <button
+                          onClick={() =>
+                            copyToClipboard(analysis.implementationAddress!)
+                          }
+                          className="text-white/60 hover:text-white/90 p-1"
+                        >
+                          📋
+                        </button>
+                      </div>
+                      <div className="mt-2 flex">
+                        <Link
+                          href={`/abi?address=${analysis.implementationAddress}&chainId=${chainId}`}
+                          className="bg-green-500/20 hover:bg-green-500/30 text-green-300 text-xs font-medium py-1.5 px-3 rounded-lg transition-colors"
+                        >
+                          Get Implementation ABI →
+                        </Link>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <button
+                        onClick={() => {
+                          const implFunc = functions.find(
+                            (f) =>
+                              f.name.toLowerCase().includes("implementation") &&
+                              (f.stateMutability === "view" ||
+                                f.stateMutability === "pure")
+                          );
+
+                          if (implFunc) {
+                            // Copy a note to clipboard about checking implementation
+                            const message = `To get the full ABI, you should check the implementation contract.\n\nThis proxy contract (${contractAddress}) likely has a function "${implFunc.name}" that returns the implementation address.`;
+                            navigator.clipboard.writeText(message);
+                            alert("Implementation info copied to clipboard!");
+                          } else {
+                            alert(
+                              "Could not find implementation function in this proxy contract."
+                            );
+                          }
+                        }}
+                        className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 text-xs font-medium py-2 px-3 rounded-lg transition-colors"
+                      >
+                        Check Implementation
+                      </button>
+                      <Link
+                        href={`/abi?address=${contractAddress}&chainId=${chainId}&note=proxy`}
+                        className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-300 text-xs font-medium py-2 px-3 rounded-lg transition-colors"
+                      >
+                        Try Another Contract
+                      </Link>
+                    </div>
+                  )}
+
+                  <p className="text-xs text-white/60 mt-2 italic">
+                    ProTip: Try looking for an "admin" or "ownership" event in
+                    the contract's transaction history to find clues about the
+                    implementation contract.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* Admin Features */}
         <div className="p-4 bg-black/30 rounded-lg border border-white/10">
           <h4 className="font-medium text-white mb-3">Admin Features</h4>
@@ -569,6 +794,31 @@ function ContractResults() {
             </span>
           </div>
         </div>
+
+        {/* Proxy Contract Banner */}
+        {analysis.isProxy && !isLoading && (
+          <div className="mt-4 bg-yellow-400/10 border border-yellow-400/30 rounded-lg p-3 flex items-center animate-pulse-slow">
+            <div className="flex-shrink-0 h-8 w-8 bg-yellow-500/20 rounded-full flex items-center justify-center mr-3">
+              <span className="text-yellow-300 text-lg">⚠️</span>
+            </div>
+            <div className="flex-1">
+              <p className="text-yellow-300 font-medium text-sm">
+                Proxy Contract Detected!
+                <span className="ml-1 text-white/80 font-normal">
+                  This is likely just the proxy interface, not the full contract
+                  implementation.
+                  <button
+                    onClick={() => setActiveTab("analysis")}
+                    className="ml-1 text-yellow-300 hover:text-yellow-400 underline transition-colors"
+                  >
+                    Check the Analysis tab
+                  </button>{" "}
+                  for implementation details.
+                </span>
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {isLoading && (
