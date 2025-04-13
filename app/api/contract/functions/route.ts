@@ -1,53 +1,62 @@
 import { NextResponse } from "next/server";
-import {
-  getWhatsABIClient,
-  getWhatsABIClientById,
-} from "@/app/lib/whatsabiClient";
-import { Address } from "viem";
-import { SupportedChain } from "@/app/lib/providers";
+import { getWhatsABIClientById } from "@/app/lib/whatsabiClient";
+import { z } from "zod";
+import { isAddress, getAddress } from "viem";
+
+// Schema for request parameters
+const RequestSchema = z.object({
+  address: z
+    .string()
+    .refine((addr) => isAddress(addr), { message: "Invalid contract address" }),
+  chainId: z.number().int().positive(),
+});
 
 export async function GET(request: Request) {
   try {
-    const url = new URL(request.url);
-    const addressParam = url.searchParams.get("address");
+    const { searchParams } = new URL(request.url);
+    const rawAddress = searchParams.get("address")?.toLowerCase();
+    const chainId = parseInt(searchParams.get("chainId") || "1");
 
-    // Support both chain ID and chain name
-    let chainClient;
-    const chainName = url.searchParams.get("chain") as SupportedChain;
-    const chainId = url.searchParams.get("chainId");
-
-    if (chainName) {
-      chainClient = await getWhatsABIClient(chainName);
-    } else if (chainId) {
-      chainClient = await getWhatsABIClientById(parseInt(chainId, 10));
-    } else {
-      // Default to Ethereum mainnet
-      chainClient = await getWhatsABIClient("ethereum");
+    if (!rawAddress) {
+      throw new Error("Address parameter is required");
     }
 
-    // Validate address format before proceeding
-    if (!addressParam || !addressParam.match(/^0x[a-fA-F0-9]{40}$/)) {
-      return NextResponse.json(
-        {
-          error:
-            "Valid contract address is required (0x followed by 40 hex characters)",
-        },
-        { status: 400 }
-      );
-    }
+    // Ensure address is properly checksummed
+    const address = getAddress(rawAddress);
+    console.log("Normalized address:", address);
 
-    // Explicitly type cast address to ensure it's treated as an Address type
-    const contractAddress = addressParam as Address;
+    // Validate parameters
+    const validatedParams = RequestSchema.parse({ address, chainId });
+
+    // Get WhatsABI client for the specified chain
+    const client = await getWhatsABIClientById(validatedParams.chainId);
+    console.log("WhatsABI client initialized");
 
     // Get contract functions
-    const functions = await chainClient.getContractFunctions(contractAddress);
+    const functions = await client.getContractFunctions(
+      validatedParams.address
+    );
+    console.log(
+      `Found ${functions.length} functions for contract ${validatedParams.address}`
+    );
 
     return NextResponse.json({ functions });
-  } catch (error: any) {
-    console.error("Error getting contract functions:", error);
-    return NextResponse.json(
-      { error: error.message || "Failed to get contract functions" },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error("Error in contract functions route:", error);
+
+    // Enhanced error response
+    const errorResponse = {
+      error: error instanceof Error ? error.message : "Unknown error",
+      stack:
+        process.env.NODE_ENV === "development" && error instanceof Error
+          ? error.stack
+          : undefined,
+      details:
+        error instanceof Error && "details" in error
+          ? (error as any).details
+          : undefined,
+    };
+
+    return NextResponse.json(errorResponse, { status: 400 });
   }
 }

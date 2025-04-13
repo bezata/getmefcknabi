@@ -7,6 +7,7 @@ import {
 import { whatsabi } from "@shazow/whatsabi";
 import { mainnet } from "viem/chains";
 
+
 const {
   SourcifyABILoader,
   EtherscanABILoader,
@@ -260,12 +261,59 @@ export class WhatsABIWrapper {
         ...this.publicClient,
         getCode: async (params: any) => {
           console.log("Safe provider getCode called with:", params);
-          // Ensure address is always set
           return this.publicClient.getCode({
             address: contractAddress,
           });
         },
+        request: async (params: any) => {
+          console.log("Safe provider request called with:", params);
+
+          // Handle eth_getStorageAt specially
+          if (params.method === "eth_getStorageAt") {
+            // Ensure we have a properly formatted address
+            const formattedAddress =
+              contractAddress.toLowerCase() as `0x${string}`;
+            console.log(
+              "Making eth_getStorageAt request with formatted address:",
+              formattedAddress
+            );
+
+            // Make the request with properly formatted parameters
+            return this.publicClient.request({
+              method: "eth_getStorageAt",
+              params: [
+                formattedAddress,
+                params.params?.[1] || "0x0",
+                params.params?.[2] || "latest",
+              ],
+            });
+          }
+
+          // Handle eth_getCode specially
+          if (params.method === "eth_getCode") {
+            const formattedAddress =
+              contractAddress.toLowerCase() as `0x${string}`;
+            console.log(
+              "Making eth_getCode request with formatted address:",
+              formattedAddress
+            );
+
+            return this.publicClient.request({
+              method: "eth_getCode",
+              params: [formattedAddress, "latest"],
+            });
+          }
+
+          // For all other methods, pass through but ensure address is formatted if it's the first parameter
+          if (params.params?.[0] === null || params.params?.[0] === undefined) {
+            params.params[0] = contractAddress.toLowerCase() as `0x${string}`;
+          }
+
+          return this.publicClient.request(params);
+        },
       };
+
+      console.log("Created safe provider for address:", contractAddress);
 
       const result = await whatsabi.autoload(contractAddress, {
         provider: safeProvider,
@@ -714,3 +762,5 @@ export class WhatsABIWrapper {
     return this.formatABI(abi);
   }
 }
+
+

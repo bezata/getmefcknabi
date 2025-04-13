@@ -50,6 +50,7 @@ export default function ABIPage() {
   const [showDonationModal, setShowDonationModal] = useState<boolean>(false);
   const [showCustomChainModal, setShowCustomChainModal] =
     useState<boolean>(false);
+  const [forceChainUpdate, setForceChainUpdate] = useState<number>(0);
 
   // Pick a random donate message on page load
   useEffect(() => {
@@ -132,15 +133,14 @@ export default function ABIPage() {
     // Close the modal
     setShowCustomChainModal(false);
 
-    // Notify of success using the contract form's onChainAdded callback
-    if (chainId === chain.id) {
-      // This forces a re-render of the form with the updated chain data
-      setChainId(0);
-      setTimeout(() => setChainId(chain.id), 10);
-    } else {
-      // Set to the newly added chain
-      setChainId(chain.id);
-    }
+    // Force a re-render of all chain-dependent components
+    setForceChainUpdate((prev) => prev + 1);
+
+    // Update to the newly added chain
+    setChainId(chain.id);
+
+    // Show success message
+    console.log(`Chain ${chain.name} (ID: ${chain.id}) added successfully!`);
   };
 
   return (
@@ -181,6 +181,8 @@ export default function ABIPage() {
                 showCustomChainModal={showCustomChainModal}
                 onShowCustomChainModal={handleShowCustomChainModal}
                 onChainAdded={handleCustomChainAdded}
+                key={`contract-form-${forceChainUpdate}`}
+                forcedChainId={chainId}
               />
             </div>
 

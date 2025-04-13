@@ -49,6 +49,7 @@ export default function CustomChainModal({
   useEffect(() => {
     const loadChains = async () => {
       try {
+        console.log("Loading chains in modal...");
         const response = (await getAllCustomChains()) as
           | CustomChain[]
           | { error: string };
@@ -74,6 +75,23 @@ export default function CustomChainModal({
       loadChains();
     }
   }, [isOpen, view]);
+
+  // Force refresh chains after a modification (add/delete)
+  const refreshChains = async () => {
+    try {
+      console.log("Refreshing chains...");
+      const response = (await getAllCustomChains()) as
+        | CustomChain[]
+        | { error: string };
+
+      if (Array.isArray(response)) {
+        console.log("Refreshed chains:", response);
+        setLocalCustomChains(response);
+      }
+    } catch (error) {
+      console.error("Failed to refresh chains:", error);
+    }
+  };
 
   const resetForm = () => {
     setChainId("");
@@ -150,6 +168,9 @@ export default function CustomChainModal({
           await addChain(newChain);
           console.log("Chain added successfully");
 
+          // Refresh the chains list
+          await refreshChains();
+
           // Call the onChainAdded callback
           onChainAdded(newChain);
 
@@ -186,6 +207,8 @@ export default function CustomChainModal({
       await removeChain(id);
       // Chain removed successfully
       setChainToDelete(null);
+      // Refresh the chains list
+      await refreshChains();
     } catch (error) {
       console.error("Failed to remove chain:", error);
       setChainToDelete(null);
@@ -455,7 +478,7 @@ export default function CustomChainModal({
                           initial={{ opacity: 0, y: 10 }}
                           animate={{ opacity: 1, y: 0 }}
                           exit={{ opacity: 0, y: -10 }}
-                          className="bg-black/40 border border-white/20 rounded-lg p-4"
+                          className="bg-black/40 border border-white/20 rounded-lg p-4 mb-3"
                         >
                           <div className="flex justify-between items-start">
                             <div>

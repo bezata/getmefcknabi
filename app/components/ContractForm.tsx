@@ -12,6 +12,7 @@ interface ContractFormProps {
   showCustomChainModal?: boolean;
   onShowCustomChainModal?: () => void;
   onChainAdded?: (chain: CustomChain) => void;
+  forcedChainId?: number;
 }
 
 export default function ContractForm({
@@ -20,6 +21,7 @@ export default function ContractForm({
   showCustomChainModal = false,
   onShowCustomChainModal = () => {},
   onChainAdded = () => {},
+  forcedChainId,
 }: ContractFormProps) {
   const addressInputRef = useRef<HTMLInputElement>(null);
   const [address, setAddress] = useState<string>("");
@@ -39,6 +41,15 @@ export default function ContractForm({
   const { getAllChains, addChain, isLoaded, createClientForChain } =
     useCustomChains();
   const chains = getAllChains();
+
+  // Update chainId when forcedChainId prop changes
+  useEffect(() => {
+    if (forcedChainId && forcedChainId !== chainId) {
+      console.log(`Updating chain ID to forced value: ${forcedChainId}`);
+      setChainId(forcedChainId);
+      setSelectedChainId(forcedChainId);
+    }
+  }, [forcedChainId]);
 
   // Force re-render when chains are loaded
   useEffect(() => {
@@ -61,8 +72,14 @@ export default function ContractForm({
 
   // Validate Ethereum address with regex and viem's isAddress
   useEffect(() => {
-    const isValidFormat = /^0x[a-fA-F0-9]{40}$/.test(address);
-    const isValidViemAddress = isAddress(address);
+    let addressToCheck = address;
+    // Make sure address has 0x prefix for validation
+    if (!addressToCheck.startsWith("0x") && addressToCheck.length > 0) {
+      addressToCheck = `0x${addressToCheck}`;
+    }
+
+    const isValidFormat = /^0x[a-fA-F0-9]{40}$/.test(addressToCheck);
+    const isValidViemAddress = isAddress(addressToCheck);
 
     setIsValid(isValidFormat && isValidViemAddress);
 
@@ -105,21 +122,51 @@ export default function ContractForm({
     setContractDetectionState("detecting");
 
     try {
-      // Attempt detection on mainnet first, then on other chains if needed
-      const chainsToTry = [1, 137, 56, 42161, 10]; // Ethereum, Polygon, BSC, Arbitrum, Optimism
+      // Ensure address has 0x prefix without doubling it up
+      let addressToCheck = address;
+      if (!addressToCheck.startsWith("0x")) {
+        addressToCheck = `0x${addressToCheck}`;
+      }
+      const formattedAddress = addressToCheck.toLowerCase() as `0x${string}`;
+
+      console.log(`Detecting contract for address: ${formattedAddress}`);
+
+      // Get all available chains
+      const availableChains = chains.map((chain) => chain.id);
+      // Start with the currently selected chain
+      const chainsToTry = [chainId];
+      // Then add other common chains if they're not already included
+      const commonChains = [1, 137, 56, 42161, 10]; // Ethereum, Polygon, BSC, Arbitrum, Optimism
+      commonChains.forEach((id) => {
+        if (!chainsToTry.includes(id)) {
+          chainsToTry.push(id);
+        }
+      });
+      // Add any remaining available chains
+      availableChains.forEach((id) => {
+        if (!chainsToTry.includes(id)) {
+          chainsToTry.push(id);
+        }
+      });
+
+      console.log("Chains to try:", chainsToTry);
 
       for (const chainToTry of chainsToTry) {
         try {
+          console.log(`Trying chain ID: ${chainToTry}`);
           const client = await createClientForChain(chainToTry);
 
           // Check if contract exists on this chain
           const code = await client.getCode({
-            address: address as `0x${string}`,
+            address: formattedAddress,
           });
+
+          console.log(`Chain ${chainToTry} code result:`, code);
 
           if (code && code !== "0x") {
             // Contract found on this chain!
             setSuggestedChainId(chainToTry);
+            console.log(`Contract found on chain ID: ${chainToTry}`);
 
             // Basic type detection from bytecode
             if (code.includes("0x23b872dd")) {
@@ -150,6 +197,7 @@ export default function ContractForm({
       }
 
       // If we get here, we didn't find a contract on any chain
+      console.log("No contract found on any chain");
       setContractDetectionState("error");
       setContractType(null);
     } catch (error) {
@@ -161,10 +209,22 @@ export default function ContractForm({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (isValid && !isLoading) {
+      // Ensure address has 0x prefix without doubling it up
+      let formattedAddress = address;
+      // Make sure it's properly formatted with exactly one 0x prefix
+      if (!formattedAddress.startsWith("0x")) {
+        formattedAddress = `0x${formattedAddress}`;
+      }
+      const submitAddress = formattedAddress.toLowerCase();
+
+      console.log(`Submitting form with address: ${submitAddress}`);
+
       // Use suggested chain if available, otherwise use selected chain
       const finalChainId =
         suggestedChainId !== null ? suggestedChainId : chainId;
-      onSubmit(address, finalChainId);
+
+      console.log(`Using chain ID: ${finalChainId}`);
+      onSubmit(submitAddress, finalChainId);
     }
   };
 
@@ -264,13 +324,16 @@ export default function ContractForm({
                   ref={addressInputRef}
                   type="text"
                   value={address.startsWith("0x") ? address.slice(2) : address}
-                  onChange={(e) =>
-                    setAddress(
-                      e.target.value.startsWith("0x")
-                        ? e.target.value
-                        : `0x${e.target.value}`
-                    )
-                  }
+                  onChange={(e) => {
+                    // Store the complete address with 0x prefix
+                    const inputValue = e.target.value;
+                    // Don't add 0x if the user is already typing it
+                    if (inputValue.startsWith("0x")) {
+                      setAddress(inputValue);
+                    } else {
+                      setAddress(`0x${inputValue}`);
+                    }
+                  }}
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
                   placeholder="Enter contract address..."
