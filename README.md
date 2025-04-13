@@ -1,36 +1,165 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# WhatsABI - Contract Explorer
+
+A simplified Ethereum contract explorer and interaction tool based on WhatsABI. This application allows users to easily explore contract ABIs, view function signatures, and interact with smart contracts across multiple chains without needing to have the contract source code or official ABI.
+
+## Features
+
+- **Advanced Contract ABI Detection**: Automatically detect contract ABIs using multiple sources:
+  - Bytecode signature analysis
+  - Sourcify decentralized repository
+  - Etherscan verified contracts
+  - Multiple signature databases (4Byte, OpenChain)
+- **Multi-Chain Support**: Works with Ethereum, Polygon, Optimism, Arbitrum, and custom networks
+- **Proxy Contract Detection**: Automatically detects and works with proxy contracts
+- **Contract Function Explorer**: View and interact with all available contract functions
+- **ABI Explorer**: Visual and JSON representation of the contract's ABI
+- **Read Contract Data**: Call view/pure functions directly from the UI
+- **Prepare Transactions**: Generate transaction data for write functions to use with your wallet
+- **Local ABI Caching**: Caches ABIs to reduce API calls
+- **RPC Management**: Automatic fallback to healthy RPC endpoints and support for custom RPC URLs
+
+## Supported Networks
+
+This application supports a wide range of EVM-compatible networks:
+
+### Mainnets
+- Ethereum
+- Polygon
+- Optimism
+- Arbitrum
+- Base
+- BNB Smart Chain
+- Avalanche
+- Fantom
+- Mode
+
+### Testnets
+- Ethereum Sepolia
+- Polygon Mumbai
+- Optimism Sepolia
+- Arbitrum Sepolia
+- Base Sepolia
+- BNB Smart Chain Testnet
+- Avalanche Fuji
+- Fantom Testnet
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- Node.js 16+ and npm/yarn
+- A web browser with MetaMask or another Ethereum wallet (for sending transactions)
+
+### Installation
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/yourusername/whatsabi-explorer.git
+   cd whatsabi-explorer
+   ```
+
+2. Install dependencies:
+   ```bash
+   npm install
+   # or
+   yarn install
+   ```
+
+3. Create a `.env.local` file based on the example:
+   ```bash
+   cp .env.local.example .env.local
+   ```
+   
+4. Edit the `.env.local` file to include your API keys and custom RPC URLs if needed:
+   - Set your Alchemy API key for RPC access
+   - Set your Etherscan API key for source verification (optional)
+
+5. Start the development server:
+   ```bash
+   npm run dev
+   # or
+   yarn dev
+   ```
+
+6. Open [http://localhost:3000](http://localhost:3000) in your browser to use the application.
+
+## Usage
+
+1. **Enter a Contract Address**: Input any Ethereum contract address and select the chain (Ethereum Mainnet, Polygon, etc.)
+
+2. **Explore Contract**: View all available functions, grouped by read and write operations
+
+3. **View Contract ABI**: Click the "ABI" tab to see the full contract ABI in both visual and JSON formats
+
+4. **Call Read Functions**:
+   - Select any view or pure function from the list
+   - Enter the required parameters
+   - Click "Call Function" to execute and see the results
+
+5. **Prepare Write Transactions**:
+   - Select any write function from the list
+   - Enter the function parameters
+   - Click "Prepare Transaction" to generate the transaction data
+   - Use the generated data with your Ethereum wallet to execute the transaction
+
+## Custom RPC Configuration
+
+You can configure custom RPC endpoints for each chain by setting environment variables in your `.env.local` file:
+
+```
+# Default endpoints
+NEXT_PUBLIC_ALCHEMY_API_KEY=your-alchemy-key
+NEXT_PUBLIC_INFURA_API_KEY=your-infura-key
+
+# Chain-specific endpoints
+NEXT_PUBLIC_ETHEREUM_RPC_URL=https://your-custom-ethereum-rpc
+NEXT_PUBLIC_POLYGON_RPC_URL=https://your-custom-polygon-rpc
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The application will automatically use the most reliable RPC endpoint and fallback to others if needed.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## How WhatsABI Works
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+WhatsABI uses a combination of techniques to reconstruct ABIs for contracts that may not have published their source code:
 
-## Learn More
+1. **Bytecode Analysis**: Extracts function selectors from bytecode
+2. **Signature Databases**: Matches function selectors with known signatures from:
+   - 4byte.directory
+   - OpenChain (formerly Samczsun's signature database)
+3. **Verified Sources**: Checks verified contracts across:
+   - Sourcify decentralized repository
+   - Etherscan's verified contracts
 
-To learn more about Next.js, take a look at the following resources:
+This combination provides the best chance of reconstructing accurate ABIs for any contract.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Architecture
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This application is built with:
 
-## Deploy on Vercel
+- **Next.js**: React framework for server-rendered applications
+- **WhatsABI**: Core library for contract ABI detection and interaction
+- **Viem**: Modern Ethereum library for TypeScript
+- **TailwindCSS**: Utility-first CSS framework for styling
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+The codebase is organized as follows:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- `/app`: Next.js application code
+  - `/components`: React components
+  - `/lib`: Utility functions and WhatsABI implementation
+    - `/lib/chainConfig.ts`: Multi-chain configuration and RPC management
+    - `/lib/whatsabi.ts`: WhatsABI wrapper implementation
+    - `/lib/whatsabiClient.ts`: Client for interacting with WhatsABI
+  - `/api`: API routes for contract interactions
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- [WhatsABI](https://github.com/shazow/whatsabi) - The core library for contract ABI detection
+- [shazow](https://github.com/shazow) - Creator of the WhatsABI library
