@@ -1,0 +1,21 @@
+{
+  "name": "GetMeFcknABI",
+  "short_name": "GetMeFcknABI",
+  "description": "Extract ABIs from any smart contract with minimal hassle. Works across all EVM chains, supports both verified and unverified contracts.",
+  "icons": [
+    {
+      "src": "/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "theme_color": "#FF5E62",
+  "background_color": "#111111",
+  "display": "standalone",
+  "start_url": "/"
+}

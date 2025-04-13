@@ -18,7 +18,7 @@ function ContractResults() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "functions" | "abi" | "analysis" | "code"
+    "functions" | "abi" | "analysis" | "code" | "terminal"
   >("functions");
   const [copied, setCopied] = useState<boolean>(false);
   const [analyzeReady, setAnalyzeReady] = useState<boolean>(false);
@@ -977,6 +977,109 @@ export const ${contractName}ABI = ${jsonABI} as Abi;`;
     );
   };
 
+  // Render the terminal command section
+  const renderTerminalCommands = () => {
+    const shortAddr =
+      contractAddress.substring(0, 10) +
+      "..." +
+      contractAddress.substring(contractAddress.length - 8);
+
+    return (
+      <div className="space-y-6">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-bold text-white">Terminal Commands</h3>
+          <div className="text-xs px-2 py-1 rounded-full bg-green-400/20 text-green-200">
+            CLI Tool
+          </div>
+        </div>
+
+        <div className="bg-black rounded-lg border border-white/10 overflow-hidden">
+          <div className="px-4 py-2 bg-purple-900/50 border-b border-white/10 flex items-center">
+            <span className="text-white/70 text-sm mr-2">$</span>
+            <span className="text-white text-sm">Install CLI tool</span>
+          </div>
+          <div className="p-4 font-mono text-sm text-white/90 bg-black">
+            <div className="flex">
+              <span className="text-yellow-300 mr-2">$</span>
+              <span className="text-white/90">npm install -g getmefcknabi</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-black rounded-lg border border-white/10 overflow-hidden">
+          <div className="px-4 py-2 bg-purple-900/50 border-b border-white/10 flex items-center">
+            <span className="text-white/70 text-sm mr-2">$</span>
+            <span className="text-white text-sm">Get ABI for {shortAddr}</span>
+          </div>
+          <div className="p-4 font-mono text-sm text-white/90 bg-black">
+            <div className="flex items-start">
+              <span className="text-yellow-300 mr-2 flex-shrink-0">$</span>
+              <span className="text-white/90 break-all">
+                getmefcknabi -a {contractAddress} -c {chainId} -f json
+              </span>
+            </div>
+            <div className="mt-1 pl-5 text-gray-400 text-xs">
+              # Output will be the complete ABI in JSON format
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-black rounded-lg border border-white/10 overflow-hidden">
+          <div className="px-4 py-2 bg-purple-900/50 border-b border-white/10 flex items-center">
+            <span className="text-white/70 text-sm mr-2">$</span>
+            <span className="text-white text-sm">Get TypeScript ABI</span>
+          </div>
+          <div className="p-4 font-mono text-sm text-white/90 bg-black">
+            <div className="flex items-start">
+              <span className="text-yellow-300 mr-2 flex-shrink-0">$</span>
+              <span className="text-white/90 break-all">
+                getmefcknabi -a {contractAddress} -c {chainId} -f typescript
+              </span>
+            </div>
+            <div className="mt-1 pl-5 text-gray-400 text-xs">
+              # Output will be TypeScript code ready to use with viem/ethers
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-black rounded-lg border border-white/10 overflow-hidden">
+          <div className="px-4 py-2 bg-purple-900/50 border-b border-white/10 flex items-center">
+            <span className="text-white/70 text-sm mr-2">$</span>
+            <span className="text-white text-sm">With custom RPC</span>
+          </div>
+          <div className="p-4 font-mono text-sm text-white/90 bg-black">
+            <div className="flex items-start">
+              <span className="text-yellow-300 mr-2 flex-shrink-0">$</span>
+              <span className="text-white/90 break-all">
+                getmefcknabi -a {contractAddress} -c {chainId} -r
+                https://ethereum.publicnode.com
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-yellow-500/10 p-4 rounded-lg border border-yellow-500/30">
+          <div className="flex items-start">
+            <div className="flex-shrink-0 h-8 w-8 bg-yellow-500/20 rounded-full flex items-center justify-center mr-3">
+              <span className="text-yellow-300 text-lg">💡</span>
+            </div>
+            <div>
+              <h4 className="font-medium text-yellow-300 mb-1">
+                CLI Usage Tips
+              </h4>
+              <p className="text-white/80 text-sm">
+                Our CLI tool makes it easy to extract ABIs directly from your
+                terminal. It works across all EVM chains and supports output in
+                JSON or TypeScript formats. Perfect for scripting or CI/CD
+                pipelines!
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       {/* Contract header */}
@@ -1159,6 +1262,16 @@ export const ${contractName}ABI = ${jsonABI} as Abi;`;
                 Code
               </button>
               <button
+                onClick={() => setActiveTab("terminal")}
+                className={`px-6 py-3 text-sm font-medium transition-colors ${
+                  activeTab === "terminal"
+                    ? "bg-yellow-300 text-purple-900"
+                    : "bg-white/10 text-white hover:bg-white/20"
+                }`}
+              >
+                Terminal
+              </button>
+              <button
                 onClick={() => setActiveTab("analysis")}
                 className={`px-6 py-3 text-sm font-medium transition-colors ${
                   activeTab === "analysis"
@@ -1176,6 +1289,7 @@ export const ${contractName}ABI = ${jsonABI} as Abi;`;
             {activeTab === "functions" && renderFunctionGroups()}
             {activeTab === "abi" && renderABI()}
             {activeTab === "code" && renderCodeSnippets()}
+            {activeTab === "terminal" && renderTerminalCommands()}
             {activeTab === "analysis" && renderAnalysis()}
           </div>
         </>
@@ -1222,7 +1336,30 @@ export default function ResultsPage() {
           >
             ← Back to Search
           </Link>
-
+          <button
+            onClick={() =>
+              window.open("https://github.com/bezata/getmefcknabi", "_blank")
+            }
+            className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full border border-white/20 flex items-center transition-all hover:scale-105"
+          >
+            <span className="mr-2">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="24"
+                height="24"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.403 5.403 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4" />
+                <path d="M9 18c-4.51 2-5-2-7-2" />
+              </svg>
+            </span>
+            <span>GitHub</span>
+          </button>
           <button
             onClick={() => setShowDonationModal(true)}
             className="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-full border border-white/20 flex items-center transition-all hover:scale-105"
@@ -1245,8 +1382,15 @@ export default function ResultsPage() {
       <footer className="py-6 text-center text-white/60 text-sm">
         <div className="flex flex-col items-center space-y-2">
           <p>
-            Created with ❤️ by blockchain dev bezata who got tired of missing
-            ABIs
+            Created with ❤️ by blockchain dev{" "}
+            <Link
+              target="_blank"
+              className="text-yellow-300"
+              href="https://github.com/bezata"
+            >
+              bezata
+            </Link>{" "}
+            who got tired of missing ABIs
           </p>
           <button
             onClick={() => setShowDonationModal(true)}

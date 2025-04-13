@@ -177,7 +177,7 @@ async function extractABI() {
         }
         try {
             // Build API URL with required parameters
-            let apiUrl = `http://localhost:3000/api/contract/abi?address=${options.address}&chainId=${chainId}`;
+            let apiUrl = `https://getmefcknabi.fun/api/contract/abi?address=${options.address}&chainId=${chainId}`;
             // Add RPC URL if provided
             if (options.rpcUrl) {
                 apiUrl += `&rpcUrl=${encodeURIComponent(options.rpcUrl)}`;
