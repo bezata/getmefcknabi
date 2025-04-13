@@ -1,4 +1,9 @@
-import { type Address, type PublicClient } from "viem";
+import {
+  type Address,
+  type PublicClient,
+  createPublicClient,
+  http,
+} from "viem";
 import { WhatsABIWrapper } from "./whatsabi";
 import { createChainClient, type SupportedChain, CHAIN_IDS } from "./providers";
 
@@ -15,6 +20,43 @@ const whatsabiClients: Record<SupportedChain, WhatsABIWrapper | null> = {
   base: null,
   "base-sepolia": null,
 };
+
+/**
+ * Create a custom WhatsABI client with a specific RPC URL
+ * @param rpcUrl The RPC URL to use
+ * @param chainId The chain ID (defaults to 1 for Ethereum mainnet)
+ * @returns A new WhatsABI client instance
+ */
+export async function createCustomClient(
+  rpcUrl: string,
+  chainId: number = 1
+): Promise<WhatsABIWrapper> {
+  try {
+    console.log(
+      `Creating custom WhatsABI client for RPC ${rpcUrl} (chain ${chainId})`
+    );
+
+    // Create a public client with the custom RPC URL
+    const publicClient = createPublicClient({
+      transport: http(rpcUrl),
+    });
+
+    // Get etherscan API key from environment
+    const etherscanApiKey = process.env.NEXT_PUBLIC_ETHERSCAN_API_KEY;
+
+    // Create a new WhatsABI client
+    const client = new WhatsABIWrapper(publicClient, {
+      etherscanApiKey,
+      chainId,
+    });
+
+    console.info(`Created custom WhatsABI client for RPC ${rpcUrl}`);
+    return client;
+  } catch (error) {
+    console.error(`Error creating custom WhatsABI client:`, error);
+    throw error;
+  }
+}
 
 /**
  * Get WhatsABI client for a specific chain
